@@ -54,7 +54,15 @@ class Kamal::Secrets::Adapters::Passbolt < Kamal::Secrets::Adapters::Base
       missing_secrets = secret_names - found_names
       raise RuntimeError, "Could not find the following secrets in Passbolt: #{missing_secrets.join(", ")}" if missing_secrets.any?
 
-      items.to_h { |item| [ item["name"], item["password"] ] }
+      resources = items.map do |item|
+        resource = `passbolt get resource --id #{item['id']} --json`
+        raise RuntimeError, "Could not read resource name = #{item['name']}, id = #{item['id']} from Passbolt" unless $?.success?
+        JSON.parse(resource) unless resource.blank?
+      end.flatten.compact_blank
+
+      resources.flatten.to_h do |resource|
+        [ resource['name'], resource['password'] ]
+      end
     end
 
     def secrets_get_folders(secrets)
